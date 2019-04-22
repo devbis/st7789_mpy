@@ -22,7 +22,7 @@
  * THE SOFTWARE.
  */
 
-#define __ST7789_VERSION__  "0.1.0"
+#define __ST7789_VERSION__  "0.1.1"
 
 #include "py/obj.h"
 #include "py/runtime.h"
@@ -33,7 +33,7 @@
 #include "st7789.h"
 
 #define _swap_int16_t(a, b) { int16_t t = a; a = b; b = t; }
-#define ABS(N) ((N<0)?(-N):(N))
+#define ABS(N) (((N)<0)?(-(N)):(N))
 #define mp_hal_delay_ms(delay)  (mp_hal_delay_us(delay * 1000))
 
 #define CS_LOW()     { if(self->cs) {mp_hal_pin_write(self->cs, 0);} }
@@ -101,9 +101,33 @@ STATIC void set_window(st7789_ST7789_obj_t *self, uint8_t x0, uint8_t y0, uint8_
     uint8_t bufx[4] = {x0 >> 8, x0 & 0xFF, x1 >> 8, x1 & 0xFF};
     uint8_t bufy[4] = {y0 >> 8, y0 & 0xFF, y1 >> 8, y1 & 0xFF};
     write_cmd(self, ST7789_CASET, bufx, 4);
-    write_cmd(self, ST7789_RASET, bufy, 4);  
-    write_cmd(self, ST7789_RAMWR, NULL, 0);  
+    write_cmd(self, ST7789_RASET, bufy, 4);
+    write_cmd(self, ST7789_RAMWR, NULL, 0);
 }
+
+STATIC void fill_color_buffer(mp_obj_base_t* spi_obj, uint16_t color, int length) {
+    uint8_t hi = color >> 8, lo = color;
+    const int buffer_pixel_size = 128;
+    int chunks = length / buffer_pixel_size;
+    int rest = length % buffer_pixel_size;
+
+    uint8_t buffer[buffer_pixel_size * 2]; // 128 pixels
+    // fill buffer with color data
+    for (int i = 0; i < length && i < buffer_pixel_size; i++) {
+        buffer[i*2] = hi;
+        buffer[i*2 + 1] = lo;
+    }
+
+    if (chunks) {
+        for (int j = 0; j < chunks; j ++) {
+            write_spi(spi_obj, buffer, buffer_pixel_size*2);
+        }
+    }
+    if (rest) {
+        write_spi(spi_obj, buffer, rest*2);
+    }
+}
+
 
 STATIC void draw_pixel(st7789_ST7789_obj_t *self, uint8_t x, uint8_t y, uint16_t color) {
     uint8_t hi = color >> 8, lo = color;
@@ -114,6 +138,25 @@ STATIC void draw_pixel(st7789_ST7789_obj_t *self, uint8_t x, uint8_t y, uint16_t
     write_spi(self->spi_obj, &lo, 1);
     CS_HIGH();
 }
+
+
+STATIC void fast_hline(st7789_ST7789_obj_t *self, uint8_t x, uint8_t y, uint16_t w, uint16_t color) {
+    set_window(self, x, y, x + w - 1, y);
+    DC_HIGH();
+    CS_LOW();
+    fill_color_buffer(self->spi_obj, color, w);
+    CS_HIGH();
+}
+
+
+STATIC void fast_vline(st7789_ST7789_obj_t *self, uint8_t x, uint8_t y, uint16_t w, uint16_t color) {
+    set_window(self, x, y, x, y + w - 1);
+    DC_HIGH();
+    CS_LOW();
+    fill_color_buffer(self->spi_obj, color, w);
+    CS_HIGH();
+}
+
 
 STATIC mp_obj_t st7789_ST7789_hard_reset(mp_obj_t self_in) {
     st7789_ST7789_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -163,7 +206,7 @@ STATIC mp_obj_t st7789_ST7789_sleep_mode(mp_obj_t self_in, mp_obj_t value) {
         write_cmd(self, ST7789_SLPIN, NULL, 0);
     } else {
         write_cmd(self, ST7789_SLPOUT, NULL, 0);
-    }    
+    }
     return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_2(st7789_ST7789_sleep_mode_obj, st7789_ST7789_sleep_mode);
@@ -188,34 +231,10 @@ STATIC mp_obj_t st7789_ST7789_inversion_mode(mp_obj_t self_in, mp_obj_t value) {
         write_cmd(self, ST7789_INVON, NULL, 0);
     } else {
         write_cmd(self, ST7789_INVOFF, NULL, 0);
-    }    
+    }
     return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_2(st7789_ST7789_inversion_mode_obj, st7789_ST7789_inversion_mode);
-
-
-STATIC void fill_color_buffer(mp_obj_base_t* spi_obj, uint16_t color, int length) {
-    uint8_t hi = color >> 8, lo = color;
-    const int buffer_pixel_size = 128;
-    int chunks = length / buffer_pixel_size;
-    int rest = length % buffer_pixel_size; 
-    
-    uint8_t buffer[buffer_pixel_size * 2]; // 128 pixels
-    // fill buffer with color data
-    for (int i = 0; i < length && i < buffer_pixel_size; i++) {
-        buffer[i*2] = hi;
-        buffer[i*2 + 1] = lo;
-    }
-
-    if (chunks) {
-        for (int j = 0; j < chunks; j ++) {
-            write_spi(spi_obj, buffer, buffer_pixel_size*2);
-        }
-    }
-    if (rest) {
-        write_spi(spi_obj, buffer, rest*2);
-    }
-}
 
 
 STATIC mp_obj_t st7789_ST7789_fill_rect(size_t n_args, const mp_obj_t *args) {
@@ -225,7 +244,7 @@ STATIC mp_obj_t st7789_ST7789_fill_rect(size_t n_args, const mp_obj_t *args) {
     mp_int_t w = mp_obj_get_int(args[3]);
     mp_int_t h = mp_obj_get_int(args[4]);
     mp_int_t color = mp_obj_get_int(args[5]);
-    
+
     set_window(self, x, y, x + w - 1, y + h - 1);
     DC_HIGH();
     CS_LOW();
@@ -257,7 +276,7 @@ STATIC mp_obj_t st7789_ST7789_pixel(size_t n_args, const mp_obj_t *args) {
     mp_int_t x = mp_obj_get_int(args[1]);
     mp_int_t y = mp_obj_get_int(args[2]);
     mp_int_t color = mp_obj_get_int(args[3]);
-    
+
     draw_pixel(self, x, y, color);
 
     return mp_const_none;
@@ -273,7 +292,7 @@ STATIC mp_obj_t st7789_ST7789_line(size_t n_args, const mp_obj_t *args) {
     mp_int_t y1 = mp_obj_get_int(args[4]);
     mp_int_t color = mp_obj_get_int(args[5]);
 
-    int16_t steep = ABS(y1 - y0) > ABS(x1 - x0);
+    bool steep = ABS(y1 - y0) > ABS(x1 - x0);
     if (steep) {
         _swap_int16_t(x0, y0);
         _swap_int16_t(x1, y1);
@@ -284,30 +303,38 @@ STATIC mp_obj_t st7789_ST7789_line(size_t n_args, const mp_obj_t *args) {
         _swap_int16_t(y0, y1);
     }
 
-    int16_t dx, dy;
-    dx = x1 - x0;
-    dy = ABS(y1 - y0);
+    int16_t dx = x1 - x0, dy = ABS(y1 - y0);
+    int16_t err = dx >> 1, ystep = -1, xs = x0, dlen = 0;
 
-    int16_t err = dx / 2;
-    int16_t ystep;
+    if (y0 < y1) ystep = 1;
 
-    if (y0 < y1) {
-        ystep = 1;
-    } else {
-        ystep = -1;
-    }
-
-    for (; x0<=x1; x0++) {
-        if (steep) {
-            draw_pixel(self, y0, x0, color);
-        } else {
-            draw_pixel(self, x0, y0, color);
-        }
+    // Split into steep and not steep for FastH/V separation
+    if (steep) {
+        for (; x0 <= x1; x0++) {
+        dlen++;
         err -= dy;
         if (err < 0) {
-            y0 += ystep;
             err += dx;
+            if (dlen == 1) draw_pixel(self, y0, xs, color);
+            else fast_vline(self, y0, xs, dlen, color);
+            dlen = 0; y0 += ystep; xs = x0 + 1;
         }
+        }
+        if (dlen) fast_vline(self, y0, xs, dlen, color);
+    }
+    else
+    {
+        for (; x0 <= x1; x0++) {
+        dlen++;
+        err -= dy;
+        if (err < 0) {
+            err += dx;
+            if (dlen == 1) draw_pixel(self, xs, y0, color);
+            else fast_hline(self, xs, y0, dlen, color);
+            dlen = 0; y0 += ystep; xs = x0 + 1;
+        }
+        }
+        if (dlen) fast_hline(self, xs, y0, dlen, color);
     }
     return mp_const_none;
 }
@@ -362,7 +389,7 @@ STATIC mp_obj_t st7789_ST7789_init(mp_obj_t self_in) {
     mp_hal_delay_ms(10);
 
     const mp_obj_t args[] = {
-        self_in, 
+        self_in,
         mp_obj_new_int(0),
         mp_obj_new_int(0),
         mp_obj_new_int(self->width),
@@ -372,28 +399,10 @@ STATIC mp_obj_t st7789_ST7789_init(mp_obj_t self_in) {
     st7789_ST7789_fill_rect(6, args);
     write_cmd(self, ST7789_DISPON, NULL, 0);
     mp_hal_delay_ms(500);
-    
+
     return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_1(st7789_ST7789_init_obj, st7789_ST7789_init);
-
-
-STATIC void fast_hline(st7789_ST7789_obj_t *self, uint8_t x, uint8_t y, uint16_t w, uint16_t color) {
-    set_window(self, x, y, x + w - 1, y);
-    DC_HIGH();
-    CS_LOW();
-    fill_color_buffer(self->spi_obj, color, w);
-    CS_HIGH();
-}
-
-
-STATIC void fast_vline(st7789_ST7789_obj_t *self, uint8_t x, uint8_t y, uint16_t w, uint16_t color) {
-    set_window(self, x, y, x, y + w - 1);
-    DC_HIGH();
-    CS_LOW();
-    fill_color_buffer(self->spi_obj, color, w);
-    CS_HIGH();
-}
 
 
 STATIC mp_obj_t st7789_ST7789_hline(size_t n_args, const mp_obj_t *args) {
@@ -402,7 +411,7 @@ STATIC mp_obj_t st7789_ST7789_hline(size_t n_args, const mp_obj_t *args) {
     mp_int_t y = mp_obj_get_int(args[2]);
     mp_int_t w = mp_obj_get_int(args[3]);
     mp_int_t color = mp_obj_get_int(args[4]);
-    
+
     fast_hline(self, x, y, w, color);
 
     return mp_const_none;
@@ -416,7 +425,7 @@ STATIC mp_obj_t st7789_ST7789_vline(size_t n_args, const mp_obj_t *args) {
     mp_int_t y = mp_obj_get_int(args[2]);
     mp_int_t w = mp_obj_get_int(args[3]);
     mp_int_t color = mp_obj_get_int(args[4]);
-    
+
     fast_vline(self, x, y, w, color);
 
     return mp_const_none;
@@ -431,7 +440,7 @@ STATIC mp_obj_t st7789_ST7789_rect(size_t n_args, const mp_obj_t *args) {
     mp_int_t w = mp_obj_get_int(args[3]);
     mp_int_t h = mp_obj_get_int(args[4]);
     mp_int_t color = mp_obj_get_int(args[5]);
-    
+
     fast_hline(self, x, y, w, color);
     fast_vline(self, x, y, h, color);
     fast_hline(self, x, y + h - 1, w, color);
@@ -520,8 +529,8 @@ mp_obj_t st7789_ST7789_make_new(const mp_obj_type_t *type,
 }
 
 
-STATIC uint16_t color565(uint8_t r, uint8_t g, uint8_t b) { 
-    return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | ((b & 0xF8) >> 3); 
+STATIC uint16_t color565(uint8_t r, uint8_t g, uint8_t b) {
+    return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | ((b & 0xF8) >> 3);
 }
 
 
