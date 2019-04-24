@@ -22,7 +22,7 @@
  * THE SOFTWARE.
  */
 
-#define __ST7789_VERSION__  "0.1.1"
+#define __ST7789_VERSION__  "0.1.2"
 
 #include "py/obj.h"
 #include "py/runtime.h"
@@ -355,9 +355,10 @@ STATIC mp_obj_t st7789_ST7789_blit_buffer(size_t n_args, const mp_obj_t *args) {
     CS_LOW();
 
     const int buf_size = 256;
+    int limit = MIN(buf_info.len, w * h * 2);
+    int chunks = limit / buf_size;
+    int rest = limit % buf_size;
     int i = 0;
-    int chunks = buf_info.len / buf_size;
-    int rest = buf_info.len % buf_size;
     for (; i < chunks; i ++) {
         write_spi(self->spi_obj, (const uint8_t*)buf_info.buf + i*buf_size, buf_size);
     }
