@@ -133,6 +133,24 @@ Also, the module exposes predefined colors:
   `BLACK`, `BLUE`, `RED`, `GREEN`, `CYAN`, `MAGENTA`, `YELLOW`, and `WHITE`
 
 
+Helper functions
+----------------
+
+- `color565(r, g, b)`
+
+  Pack a color into 2-bytes rgb565 format
+  
+- `map_bitarray_to_rgb565(bitarray, buffer, width, color=WHITE, bg_color=BLACK)`
+
+  Convert a bitarray to the rgb565 color buffer which is suitable for blitting.
+  Bit 1 in bitarray is a pixel with `color` and 0 - with `bg_color`.
+  
+  This is a helper with a good performance to print text with a high 
+  resolution font. You can use an awesome tool 
+  https://github.com/peterhinch/micropython-font-to-py
+  to generate a bitmap fonts from .ttf and use them as a frozen bytecode from 
+  the ROM memory.
+
 Performance
 -----------
 

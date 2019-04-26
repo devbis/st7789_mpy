@@ -22,7 +22,7 @@
  * THE SOFTWARE.
  */
 
-#define __ST7789_VERSION__  "0.1.2"
+#define __ST7789_VERSION__  "0.1.3"
 
 #include "py/obj.h"
 #include "py/runtime.h"
@@ -542,12 +542,63 @@ STATIC mp_obj_t st7789_color565(mp_obj_t r, mp_obj_t g, mp_obj_t b) {
         (uint8_t)mp_obj_get_int(b)
     ));
 }
-
 STATIC MP_DEFINE_CONST_FUN_OBJ_3(st7789_color565_obj, st7789_color565);
+
+
+STATIC void map_bitarray_to_rgb565(uint8_t const *bitarray, uint8_t *buffer, int length, int width,
+                                  uint16_t color, uint16_t bg_color) {
+    int row_pos = 0;
+    for (int i = 0; i < length; i++) {
+        uint8_t byte = bitarray[i];
+        for (int bi = 7; bi >= 0; bi--) {
+            uint8_t b = byte & (1 << bi);
+            uint16_t cur_color = b ? color : bg_color;
+            *buffer = (cur_color & 0xff00) >> 8;
+            buffer ++;
+            *buffer = cur_color & 0xff;
+            buffer ++;
+
+            row_pos ++;
+            if (row_pos >= width) {
+                row_pos = 0;
+                break;
+            }
+        }
+    }
+}
+
+
+STATIC mp_obj_t st7789_map_bitarray_to_rgb565(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
+    enum { ARG_bitarray, ARG_buffer, ARG_width, ARG_color, ARG_bg_color };
+    static const mp_arg_t allowed_args[] = {
+        { MP_QSTR_bitarray, MP_ARG_OBJ | MP_ARG_REQUIRED, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_buffer, MP_ARG_OBJ | MP_ARG_REQUIRED, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_width, MP_ARG_INT | MP_ARG_REQUIRED, {.u_int = -1} },
+        { MP_QSTR_color, MP_ARG_INT, {.u_int = WHITE} },
+        { MP_QSTR_bg_color, MP_ARG_INT, {.u_int = BLACK } },
+    };
+    mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
+    mp_arg_parse_all(n_args, pos_args, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
+
+    mp_buffer_info_t bitarray_info;
+    mp_buffer_info_t buffer_info;
+    mp_get_buffer_raise(args[ARG_bitarray].u_obj, &bitarray_info, MP_BUFFER_READ);
+    mp_get_buffer_raise(args[ARG_buffer].u_obj, &buffer_info, MP_BUFFER_WRITE);
+    mp_int_t width = args[ARG_width].u_int;
+    mp_int_t color = args[ARG_color].u_int;
+    mp_int_t bg_color = args[ARG_bg_color].u_int;
+
+    map_bitarray_to_rgb565(bitarray_info.buf, buffer_info.buf, bitarray_info.len, width, color, bg_color);
+
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_KW(st7789_map_bitarray_to_rgb565_obj, 3, st7789_map_bitarray_to_rgb565);
+
 
 STATIC const mp_map_elem_t st7789_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_OBJ_NEW_QSTR(MP_QSTR_st7789) },
     { MP_ROM_QSTR(MP_QSTR_color565), (mp_obj_t)&st7789_color565_obj },
+    { MP_ROM_QSTR(MP_QSTR_map_bitarray_to_rgb565), (mp_obj_t)&st7789_map_bitarray_to_rgb565_obj },
     { MP_ROM_QSTR(MP_QSTR_ST7789), (mp_obj_t)&st7789_ST7789_type },
     { MP_ROM_QSTR(MP_QSTR_BLACK), MP_ROM_INT(BLACK) },
     { MP_ROM_QSTR(MP_QSTR_BLUE), MP_ROM_INT(BLUE) },
