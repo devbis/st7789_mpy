@@ -5,12 +5,8 @@
 extern "C" {
 #endif
 
-#define ST7789_TFTWIDTH_240 	240
-#define ST7789_TFTHEIGHT_240 	240
-
-#define ST7789_240x240_XSTART 0
-#define ST7789_240x240_YSTART 0
-
+#define ST7789_XSTART 52
+#define ST7789_YSTART 40
 
 // color modes
 #define COLOR_MODE_65K      0x50

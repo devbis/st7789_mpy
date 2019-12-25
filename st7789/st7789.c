@@ -92,14 +92,16 @@ STATIC void write_cmd(st7789_ST7789_obj_t *self, uint8_t cmd, const uint8_t *dat
 }
 
 STATIC void set_window(st7789_ST7789_obj_t *self, uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1) {
-    if (x0 > x1 || x1 > self->width) {
+    if (x0 > x1 || x1 >= self->width) {
         return;
     }
-    if (y0 > y1 || y1 > self->height) {
+    if (y0 > y1 || y1 >= self->height) {
         return;
     }
-    uint8_t bufx[4] = {x0 >> 8, x0 & 0xFF, x1 >> 8, x1 & 0xFF};
-    uint8_t bufy[4] = {y0 >> 8, y0 & 0xFF, y1 >> 8, y1 & 0xFF};
+
+    uint8_t bufx[4] = {(x0+ST7789_XSTART) >> 8, (x0+ST7789_XSTART) & 0xFF, (x1+ST7789_XSTART) >> 8, (x1+ST7789_XSTART) & 0xFF};
+    uint8_t bufy[4] = {(y0+ST7789_YSTART) >> 8, (y0+ST7789_YSTART) & 0xFF, (y1+ST7789_YSTART) >> 8, (y1+ST7789_YSTART) & 0xFF};
+
     write_cmd(self, ST7789_CASET, bufx, 4);
     write_cmd(self, ST7789_RASET, bufy, 4);
     write_cmd(self, ST7789_RAMWR, NULL, 0);
@@ -260,7 +262,7 @@ STATIC mp_obj_t st7789_ST7789_fill(mp_obj_t self_in, mp_obj_t _color) {
     st7789_ST7789_obj_t *self = MP_OBJ_TO_PTR(self_in);
     mp_int_t color = mp_obj_get_int(_color);
 
-    set_window(self, 0, 0, self->width, self->height);
+    set_window(self, 0, 0, self->width - 1, self->height - 1);
     DC_HIGH();
     CS_LOW();
     fill_color_buffer(self->spi_obj, color, self->width * self->height);
