@@ -22,7 +22,7 @@
  * THE SOFTWARE.
  */
 
-#define __ST7789_VERSION__  "0.1.3"
+#define __ST7789_VERSION__  "0.1.4"
 
 #include "py/obj.h"
 #include "py/runtime.h"
@@ -56,6 +56,8 @@ typedef struct _st7789_ST7789_obj_t {
     mp_obj_base_t *spi_obj;
     uint8_t width;
     uint8_t height;
+    uint8_t xstart;
+    uint8_t ystart;
     mp_hal_pin_obj_t reset;
     mp_hal_pin_obj_t dc;
     mp_hal_pin_obj_t cs;
@@ -98,8 +100,8 @@ STATIC void set_window(st7789_ST7789_obj_t *self, uint8_t x0, uint8_t y0, uint8_
     if (y0 > y1 || y1 >= self->height) {
         return;
     }
-    uint8_t bufx[4] = {x0 >> 8, x0 & 0xFF, x1 >> 8, x1 & 0xFF};
-    uint8_t bufy[4] = {y0 >> 8, y0 & 0xFF, y1 >> 8, y1 & 0xFF};
+    uint8_t bufx[4] = {(x0+self->xstart) >> 8, (x0+self->xstart) & 0xFF, (x1+self->xstart) >> 8, (x1+self->xstart) & 0xFF};
+    uint8_t bufy[4] = {(y0+self->ystart) >> 8, (y0+self->ystart) & 0xFF, (y1+self->ystart) >> 8, (y1+self->ystart) & 0xFF};
     write_cmd(self, ST7789_CASET, bufx, 4);
     write_cmd(self, ST7789_RASET, bufy, 4);
     write_cmd(self, ST7789_RAMWR, NULL, 0);
@@ -488,7 +490,10 @@ mp_obj_t st7789_ST7789_make_new(const mp_obj_type_t *type,
                                 size_t n_args,
                                 size_t n_kw,
                                 const mp_obj_t *all_args ) {
-    enum { ARG_spi, ARG_width, ARG_height, ARG_reset, ARG_dc, ARG_cs, ARG_backlight };
+    enum {
+        ARG_spi, ARG_width, ARG_height, ARG_reset, ARG_dc, ARG_cs,
+        ARG_backlight, ARG_xstart, ARG_ystart
+    };
     static const mp_arg_t allowed_args[] = {
         { MP_QSTR_spi, MP_ARG_OBJ | MP_ARG_REQUIRED, {.u_obj = MP_OBJ_NULL} },
         { MP_QSTR_width, MP_ARG_INT | MP_ARG_REQUIRED, {.u_int = 0} },
@@ -497,6 +502,8 @@ mp_obj_t st7789_ST7789_make_new(const mp_obj_type_t *type,
         { MP_QSTR_dc, MP_ARG_KW_ONLY | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
         { MP_QSTR_cs, MP_ARG_KW_ONLY | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
         { MP_QSTR_backlight, MP_ARG_KW_ONLY | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_xstart, MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = -1} },
+        { MP_QSTR_ystart, MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = -1} },
     };
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all_kw_array(n_args, n_kw, all_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
@@ -510,6 +517,19 @@ mp_obj_t st7789_ST7789_make_new(const mp_obj_type_t *type,
     self->spi_obj = spi_obj;
     self->width = args[ARG_width].u_int;
     self->height = args[ARG_height].u_int;
+
+    if (args[ARG_xstart].u_int >= 0 && args[ARG_ystart].u_int >= 0) {
+        self->xstart = args[ARG_xstart].u_int;
+        self->ystart = args[ARG_ystart].u_int;
+    } else if (self->width == 240 && self->height == 240) {
+        self->xstart = ST7789_240x240_XSTART;
+        self->ystart = ST7789_240x240_YSTART;
+    } else if (self->width == 135 && self->height == 240) {
+        self->xstart = ST7789_135x240_XSTART;
+        self->ystart = ST7789_135x240_YSTART;
+    } else {
+        mp_raise_ValueError("Unsupported display. Only 240x240 and 135x240 are supported without xstart and ystart provided");
+    }
 
     if (args[ARG_reset].u_obj == MP_OBJ_NULL
         || args[ARG_dc].u_obj == MP_OBJ_NULL) {

@@ -5,11 +5,10 @@
 extern "C" {
 #endif
 
-#define ST7789_TFTWIDTH_240 	240
-#define ST7789_TFTHEIGHT_240 	240
-
 #define ST7789_240x240_XSTART 0
 #define ST7789_240x240_YSTART 0
+#define ST7789_135x240_XSTART 52
+#define ST7789_135x240_YSTART 40
 
 
 // color modes
@@ -45,10 +44,10 @@ extern "C" {
 #define ST7789_MADCTL  0x36
 
 #define ST7789_MADCTL_MY  0x80  // Page Address Order
-#define ST7789_MADCTL_MX  0x40  // Column Address Order 
-#define ST7789_MADCTL_MV  0x20  // Page/Column Order 
-#define ST7789_MADCTL_ML  0x10  // Line Address Order 
-#define ST7789_MADCTL_MH  0x04  // Display Data Latch Order  
+#define ST7789_MADCTL_MX  0x40  // Column Address Order
+#define ST7789_MADCTL_MV  0x20  // Page/Column Order
+#define ST7789_MADCTL_ML  0x10  // Line Address Order
+#define ST7789_MADCTL_MH  0x04  // Display Data Latch Order
 #define ST7789_MADCTL_RGB 0x00
 #define ST7789_MADCTL_BGR 0x08
 

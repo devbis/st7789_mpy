@@ -11,6 +11,8 @@ based on ST7789 chip.
   <img src="https://raw.githubusercontent.com/devbis/st7789_mpy/master/docs/ST7789.jpg" alt="ST7789 display photo"/>
 </p>
 
+It supports both 240x240 and 135x240 variants of displays.
+
 It is written in pure C, so you have to build
 firmware by yourself.
 Only ESP8266 and ESP32 are supported for now.
@@ -197,3 +199,11 @@ Edit `esp8266_common.ld` file in the `ports/esp8266` dir and add a line
     *st7789/*.o(.literal* .text*)
 
 in the `.irom0.text : ALIGN(4)` section
+
+
+#### Unsupported dimensions
+
+This driver supports only 240x240 and 135x240 pixel displays.
+If you have a display with an unsupported resolution, you can pass 
+`xstart` and `ystart` parameters to the display constructor to set the 
+required offsets.
