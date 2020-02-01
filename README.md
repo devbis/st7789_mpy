@@ -8,7 +8,7 @@ This is a driver for MicroPython to handle cheap displays
 based on ST7789 chip. 
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/devbis/st7789_mpy/master/docs/ST7789.jpg" alt="ST7789 display photo"/>
+  <img src="https://raw.githubusercontent.com/dvarrel/st7789_mpy/master/docs/ST7789.jpg" alt="ST7789 display photo"/>
 </p>
 
 It supports both 240x240 and 135x240 variants of displays.
