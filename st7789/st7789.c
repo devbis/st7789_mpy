@@ -42,6 +42,8 @@
 #define DC_HIGH()    (mp_hal_pin_write(self->dc, 1))
 #define RESET_LOW()  (mp_hal_pin_write(self->reset, 0))
 #define RESET_HIGH() (mp_hal_pin_write(self->reset, 1))
+#define DISP_HIGH() (mp_hal_pin_write(self->backlight, 1))
+#define DISP_LOW() (mp_hal_pin_write(self->backlight, 0))
 
 
 STATIC void write_spi(mp_obj_base_t *spi_obj, const uint8_t *buf, int len) {
@@ -401,12 +403,29 @@ STATIC mp_obj_t st7789_ST7789_init(mp_obj_t self_in) {
     };
     st7789_ST7789_fill_rect(6, args);
     write_cmd(self, ST7789_DISPON, NULL, 0);
-    mp_hal_delay_ms(500);
+    mp_hal_delay_ms(100);
 
     return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_1(st7789_ST7789_init_obj, st7789_ST7789_init);
 
+STATIC mp_obj_t st7789_ST7789_on(mp_obj_t self_in) {
+    st7789_ST7789_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    DISP_HIGH();
+    mp_hal_delay_ms(10);   
+    
+    return mp_const_none; 
+}
+MP_DEFINE_CONST_FUN_OBJ_1(st7789_ST7789_on_obj, st7789_ST7789_on);
+
+STATIC mp_obj_t st7789_ST7789_off(mp_obj_t self_in) {
+    st7789_ST7789_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    DISP_LOW();
+    mp_hal_delay_ms(10);
+    
+    return mp_const_none;    
+}
+MP_DEFINE_CONST_FUN_OBJ_1(st7789_ST7789_off_obj, st7789_ST7789_off);
 
 STATIC mp_obj_t st7789_ST7789_hline(size_t n_args, const mp_obj_t *args) {
     st7789_ST7789_obj_t *self = MP_OBJ_TO_PTR(args[0]);
@@ -464,6 +483,8 @@ STATIC const mp_rom_map_elem_t st7789_ST7789_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_set_window), MP_ROM_PTR(&st7789_ST7789_set_window_obj) },
 #endif
     { MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&st7789_ST7789_init_obj) },
+    { MP_ROM_QSTR(MP_QSTR_on), MP_ROM_PTR(&st7789_ST7789_on_obj) },
+    { MP_ROM_QSTR(MP_QSTR_off), MP_ROM_PTR(&st7789_ST7789_off_obj) },
     { MP_ROM_QSTR(MP_QSTR_pixel), MP_ROM_PTR(&st7789_ST7789_pixel_obj) },
     { MP_ROM_QSTR(MP_QSTR_line), MP_ROM_PTR(&st7789_ST7789_line_obj) },
     { MP_ROM_QSTR(MP_QSTR_blit_buffer), MP_ROM_PTR(&st7789_ST7789_blit_buffer_obj) },
