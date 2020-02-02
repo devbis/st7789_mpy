@@ -50,6 +50,7 @@ Upload the resulting firmware to your MCU as usual with esptool.py
 [MicroPython docs](http://docs.micropython.org/en/latest/esp8266/tutorial/intro.html#deploying-the-firmware) 
 for more info)
 
+    $ make deploy
 
 Working examples
 ----------------
