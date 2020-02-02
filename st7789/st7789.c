@@ -22,7 +22,7 @@
  * THE SOFTWARE.
  */
 
-#define __ST7789_VERSION__  "0.1.4"
+#define __ST7789_VERSION__  "0.1.5"
 
 #include "py/obj.h"
 #include "py/runtime.h"
