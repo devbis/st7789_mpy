@@ -549,12 +549,12 @@ mp_obj_t st7789_ST7789_make_new(const mp_obj_type_t *type,
         self->xstart = ST7789_135x240_XSTART;
         self->ystart = ST7789_135x240_YSTART;
     } else {
-        mp_raise_ValueError("Unsupported display. Only 240x240 and 135x240 are supported without xstart and ystart provided");
+        mp_raise_ValueError((mp_rom_error_text_t)"Unsupported display. Only 240x240 and 135x240 are supported without xstart and ystart provided");
     }
 
     if (args[ARG_reset].u_obj == MP_OBJ_NULL
         || args[ARG_dc].u_obj == MP_OBJ_NULL) {
-        mp_raise_ValueError("must specify all of reset/dc pins");
+        mp_raise_ValueError((mp_rom_error_text_t)"must specify all of reset/dc pins");
     }
 
     self->reset = mp_hal_get_pin_obj(args[ARG_reset].u_obj);
