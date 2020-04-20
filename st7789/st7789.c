@@ -412,9 +412,9 @@ MP_DEFINE_CONST_FUN_OBJ_1(st7789_ST7789_init_obj, st7789_ST7789_init);
 STATIC mp_obj_t st7789_ST7789_on(mp_obj_t self_in) {
     st7789_ST7789_obj_t *self = MP_OBJ_TO_PTR(self_in);
     DISP_HIGH();
-    mp_hal_delay_ms(10);   
-    
-    return mp_const_none; 
+    mp_hal_delay_ms(10);
+
+    return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_1(st7789_ST7789_on_obj, st7789_ST7789_on);
 
@@ -422,8 +422,8 @@ STATIC mp_obj_t st7789_ST7789_off(mp_obj_t self_in) {
     st7789_ST7789_obj_t *self = MP_OBJ_TO_PTR(self_in);
     DISP_LOW();
     mp_hal_delay_ms(10);
-    
-    return mp_const_none;    
+
+    return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_1(st7789_ST7789_off_obj, st7789_ST7789_off);
 
@@ -549,12 +549,12 @@ mp_obj_t st7789_ST7789_make_new(const mp_obj_type_t *type,
         self->xstart = ST7789_135x240_XSTART;
         self->ystart = ST7789_135x240_YSTART;
     } else {
-        mp_raise_ValueError((mp_rom_error_text_t)"Unsupported display. Only 240x240 and 135x240 are supported without xstart and ystart provided");
+        mp_raise_ValueError(MP_ERROR_TEXT("Unsupported display. Only 240x240 and 135x240 are supported without xstart and ystart provided"));
     }
 
     if (args[ARG_reset].u_obj == MP_OBJ_NULL
         || args[ARG_dc].u_obj == MP_OBJ_NULL) {
-        mp_raise_ValueError((mp_rom_error_text_t)"must specify all of reset/dc pins");
+        mp_raise_ValueError(MP_ERROR_TEXT("must specify all of reset/dc pins"));
     }
 
     self->reset = mp_hal_get_pin_obj(args[ARG_reset].u_obj);
