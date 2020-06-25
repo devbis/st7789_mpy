@@ -38,12 +38,12 @@
 
 #define CS_LOW()     { if(self->cs) {mp_hal_pin_write(self->cs, 0);} }
 #define CS_HIGH()    { if(self->cs) {mp_hal_pin_write(self->cs, 1);} }
-#define DC_LOW()     (mp_hal_pin_write(self->dc, 0))
-#define DC_HIGH()    (mp_hal_pin_write(self->dc, 1))
-#define RESET_LOW()  (mp_hal_pin_write(self->reset, 0))
-#define RESET_HIGH() (mp_hal_pin_write(self->reset, 1))
-#define DISP_HIGH() (mp_hal_pin_write(self->backlight, 1))
-#define DISP_LOW() (mp_hal_pin_write(self->backlight, 0))
+#define DC_LOW()     mp_hal_pin_write(self->dc, 0)
+#define DC_HIGH()    mp_hal_pin_write(self->dc, 1)
+#define RESET_LOW()  mp_hal_pin_write(self->reset, 0)
+#define RESET_HIGH() mp_hal_pin_write(self->reset, 1)
+#define DISP_HIGH()  mp_hal_pin_write(self->backlight, 1)
+#define DISP_LOW()   mp_hal_pin_write(self->backlight, 0)
 
 
 STATIC void write_spi(mp_obj_base_t *spi_obj, const uint8_t *buf, int len) {
