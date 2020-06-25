@@ -32,6 +32,11 @@
 
 #include "st7789.h"
 
+// allow compiling against MP <=1.12
+#ifndef MP_ERROR_TEXT
+#define MP_ERROR_TEXT(a) a
+#endif
+
 #define _swap_int16_t(a, b) { int16_t t = a; a = b; b = t; }
 #define ABS(N) (((N)<0)?(-(N)):(N))
 #define mp_hal_delay_ms(delay)  (mp_hal_delay_us(delay * 1000))
