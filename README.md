@@ -15,7 +15,7 @@ It supports both 240x240 and 135x240 variants of displays.
 
 It is written in pure C, so you have to build
 firmware by yourself.
-Only ESP8266 and ESP32 are supported for now.
+ESP8266, ESP32, and STM32 ports are supported for now.
 
 
 Building instruction
@@ -90,6 +90,18 @@ Other SPI pins are not used.
 
 
 I couldn't run the display on an SPI with baudrate higher than 40MHZ
+
+Also, the driver was tested on STM32 board:
+
+
+    # STM32
+    
+    import machine
+    import st7789
+    spi = machine.SPI(2, baudrate=12000000, polarity=1)
+    display = st7789.ST7789(spi, 135, 240, reset=machine.Pin('B3', machine.Pin.OUT), dc=machine.Pin('B6', machine.Pin.OUT))
+    display.init()
+
 
 Methods
 -------------
