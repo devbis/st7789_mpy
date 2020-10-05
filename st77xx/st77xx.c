@@ -2,6 +2,7 @@
  * The MIT License (MIT)
  *
  * Copyright (c) 2019 Ivan Belokobylskiy
+ * Copyright (c) 2020 + Silvano Zampardi
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,6 +22,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
+#define __ST77XX_VERSION__  "0.2"
 
 #include "py/obj.h"
 #include "py/runtime.h"
@@ -69,6 +72,7 @@ typedef struct _st77xx_ST77XX_obj_t {
     mp_hal_pin_obj_t dc;
     mp_hal_pin_obj_t cs;
     mp_hal_pin_obj_t backlight;
+    uint8_t rgb;
 } st77xx_ST77XX_obj_t;
 
 // just a definition
@@ -81,7 +85,7 @@ STATIC void st77xx_ST77XX_print( const mp_print_t *print,
                                   mp_print_kind_t kind ) {
     (void)kind;
     st77xx_ST77XX_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    mp_printf(print, "<ST77XX width=%u, height=%u, rotation=%u, spi=%p>", self->width, self->height, self->rotation, self->spi_obj);
+    mp_printf(print, "<ST77XX width=%u, height=%u, rotation=%u, offset=%u/%u, spi=%p>", self->width, self->height, self->rotation, self->xstart, self->ystart, self->spi_obj);
 }
 
 /* methods start */
@@ -113,7 +117,7 @@ STATIC void set_window(st77xx_ST77XX_obj_t *self, uint8_t x0, uint8_t y0, uint8_
     write_cmd(self, ST77XX_RAMWR, NULL, 0);
 }
 
-STATIC void rotate(st77xx_ST77XX_obj_t *self, uint8_t n) {
+STATIC int rotation(st77xx_ST77XX_obj_t *self, uint8_t n) {
     if (0 <= n && n < 4) {
         int chg = self->rotation ^ n;
         self->rotation = n;
@@ -122,13 +126,14 @@ STATIC void rotate(st77xx_ST77XX_obj_t *self, uint8_t n) {
             uint8_t oh = self->height;
             self->width = oh;
             self->height = ow;
+            uint8_t ox = self->xstart;
+            uint8_t oy = self->ystart;
+            self->xstart = oy;
+            self->ystart = ox;
         }
-        uint8_t bufr[1] = { ST77XX_MADCTL_ROT[n] | ST77XX_MADCTL_RGB };
+        uint8_t bufr[1] = { ST77XX_MADCTL_ROT[n] | self->rgb };
         write_cmd(self, ST77XX_MADCTL, bufr, 1);
     }
-}
-
-STATIC int rotation(st77xx_ST77XX_obj_t *self) {
     return self->rotation;
 }
 
@@ -154,7 +159,6 @@ STATIC void fill_color_buffer(mp_obj_base_t* spi_obj, uint16_t color, int length
         write_spi(spi_obj, buffer, rest*2);
     }
 }
-
 
 STATIC void draw_pixel(st77xx_ST77XX_obj_t *self, uint8_t x, uint8_t y, uint16_t color) {
     uint8_t hi = color >> 8, lo = color;
@@ -199,16 +203,6 @@ STATIC mp_obj_t st77xx_ST77XX_hard_reset(mp_obj_t self_in) {
     return mp_const_none;
 }
 
-STATIC mp_obj_t st77xx_ST77XX_soft_reset(mp_obj_t self_in) {
-    st77xx_ST77XX_obj_t *self = MP_OBJ_TO_PTR(self_in);
-
-    write_cmd(self, ST77XX_SWRESET, NULL, 0);
-    mp_hal_delay_ms(150);
-    return mp_const_none;
-}
-
-// do not expose extra method to reduce size
-#ifdef EXPOSE_EXTRA_METHODS
 STATIC mp_obj_t st77xx_ST77XX_write(mp_obj_t self_in, mp_obj_t command, mp_obj_t data) {
     st77xx_ST77XX_obj_t *self = MP_OBJ_TO_PTR(self_in);
 
@@ -224,6 +218,16 @@ STATIC mp_obj_t st77xx_ST77XX_write(mp_obj_t self_in, mp_obj_t command, mp_obj_t
 }
 MP_DEFINE_CONST_FUN_OBJ_3(st77xx_ST77XX_write_obj, st77xx_ST77XX_write);
 
+#ifdef ST77XX_EXPOSE_EXTRA_METHODS
+
+STATIC mp_obj_t st77xx_ST77XX_soft_reset(mp_obj_t self_in) {
+    st77xx_ST77XX_obj_t *self = MP_OBJ_TO_PTR(self_in);
+
+    write_cmd(self, ST77XX_SWRESET, NULL, 0);
+    mp_hal_delay_ms(150);
+    return mp_const_none;
+}
+
 MP_DEFINE_CONST_FUN_OBJ_1(st77xx_ST77XX_hard_reset_obj, st77xx_ST77XX_hard_reset);
 MP_DEFINE_CONST_FUN_OBJ_1(st77xx_ST77XX_soft_reset_obj, st77xx_ST77XX_soft_reset);
 
@@ -238,6 +242,8 @@ STATIC mp_obj_t st77xx_ST77XX_sleep_mode(mp_obj_t self_in, mp_obj_t value) {
 }
 MP_DEFINE_CONST_FUN_OBJ_2(st77xx_ST77XX_sleep_mode_obj, st77xx_ST77XX_sleep_mode);
 
+#endif
+
 STATIC mp_obj_t st77xx_ST77XX_set_window(size_t n_args, const mp_obj_t *args) {
     st77xx_ST77XX_obj_t *self = MP_OBJ_TO_PTR(args[0]);
     mp_int_t x0 = mp_obj_get_int(args[1]);
@@ -250,21 +256,36 @@ STATIC mp_obj_t st77xx_ST77XX_set_window(size_t n_args, const mp_obj_t *args) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(st77xx_ST77XX_set_window_obj, 5, 5, st77xx_ST77XX_set_window);
 
-#endif
-
-STATIC mp_obj_t st77xx_ST77XX_rotate(size_t n_args, const mp_obj_t *args) {
-    st77xx_ST77XX_obj_t *self = MP_OBJ_TO_PTR(args[0]);
-    mp_int_t n = mp_obj_get_int(args[1]);
-    rotate(self, n);
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(st77xx_ST77XX_rotate_obj, 2, 2, st77xx_ST77XX_rotate);
-
 STATIC mp_obj_t st77xx_ST77XX_rotation(size_t n_args, const mp_obj_t *args) {
     st77xx_ST77XX_obj_t *self = MP_OBJ_TO_PTR(args[0]);
-    return MP_OBJ_NEW_SMALL_INT(rotation(self));
+    mp_int_t n = mp_obj_get_int(args[1]);
+    return MP_OBJ_NEW_SMALL_INT(rotation(self, n));
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(st77xx_ST77XX_rotation_obj, 1, 1, st77xx_ST77XX_rotation);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(st77xx_ST77XX_rotation_obj, 2, 2, st77xx_ST77XX_rotation);
+
+STATIC mp_obj_t st77xx_ST77XX_width(size_t n_args, const mp_obj_t *args) {
+    st77xx_ST77XX_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    return MP_OBJ_NEW_SMALL_INT(self->width);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(st77xx_ST77XX_width_obj, 1, 1, st77xx_ST77XX_width);
+
+STATIC mp_obj_t st77xx_ST77XX_height(size_t n_args, const mp_obj_t *args) {
+    st77xx_ST77XX_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    return MP_OBJ_NEW_SMALL_INT(self->height);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(st77xx_ST77XX_height_obj, 1, 1, st77xx_ST77XX_height);
+
+STATIC mp_obj_t st77xx_ST77XX_xstart(size_t n_args, const mp_obj_t *args) {
+    st77xx_ST77XX_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    return MP_OBJ_NEW_SMALL_INT(self->xstart);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(st77xx_ST77XX_xstart_obj, 1, 1, st77xx_ST77XX_xstart);
+
+STATIC mp_obj_t st77xx_ST77XX_ystart(size_t n_args, const mp_obj_t *args) {
+    st77xx_ST77XX_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    return MP_OBJ_NEW_SMALL_INT(self->ystart);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(st77xx_ST77XX_ystart_obj, 1, 1, st77xx_ST77XX_ystart);
 
 STATIC mp_obj_t st77xx_ST77XX_inversion_mode(mp_obj_t self_in, mp_obj_t value) {
     st77xx_ST77XX_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -320,6 +341,19 @@ STATIC mp_obj_t st77xx_ST77XX_pixel(size_t n_args, const mp_obj_t *args) {
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(st77xx_ST77XX_pixel_obj, 4, 4, st77xx_ST77XX_pixel);
+
+STATIC mp_obj_t st77xx_ST77XX_pushcolor(size_t n_args, const mp_obj_t *args) {
+    st77xx_ST77XX_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    mp_int_t color = mp_obj_get_int(args[1]);
+    uint8_t hi = color >> 8, lo = color;
+    DC_HIGH();
+    CS_LOW();
+    write_spi(self->spi_obj, &hi, 1);
+    write_spi(self->spi_obj, &lo, 1);
+    CS_HIGH();
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(st77xx_ST77XX_pushcolor_obj, 2, 2, st77xx_ST77XX_pushcolor);
 
 STATIC mp_obj_t st77xx_ST77XX_line(size_t n_args, const mp_obj_t *args) {
     st77xx_ST77XX_obj_t *self = MP_OBJ_TO_PTR(args[0]);
@@ -378,7 +412,7 @@ STATIC mp_obj_t st77xx_ST77XX_line(size_t n_args, const mp_obj_t *args) {
 STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(st77xx_ST77XX_line_obj, 6, 6, st77xx_ST77XX_line);
 
 
-STATIC mp_obj_t st77xx_ST77XX_blit_buffer(size_t n_args, const mp_obj_t *args) {
+STATIC mp_obj_t st77xx_ST77XX_blit(size_t n_args, const mp_obj_t *args) {
     st77xx_ST77XX_obj_t *self = MP_OBJ_TO_PTR(args[0]);
     mp_buffer_info_t buf_info;
     mp_get_buffer_raise(args[1], &buf_info, MP_BUFFER_READ);
@@ -406,7 +440,7 @@ STATIC mp_obj_t st77xx_ST77XX_blit_buffer(size_t n_args, const mp_obj_t *args) {
 
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(st77xx_ST77XX_blit_buffer_obj, 6, 6, st77xx_ST77XX_blit_buffer);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(st77xx_ST77XX_blit_obj, 6, 6, st77xx_ST77XX_blit);
 
 
 STATIC mp_obj_t st77xx_ST77XX_init(mp_obj_t self_in) {
@@ -418,7 +452,7 @@ STATIC mp_obj_t st77xx_ST77XX_init(mp_obj_t self_in) {
     const uint8_t color_mode[] = { COLOR_MODE_65K | COLOR_MODE_16BIT};
     write_cmd(self, ST77XX_COLMOD, color_mode, 1);
     mp_hal_delay_ms(10);
-    const uint8_t madctl[] = { ST77XX_MADCTL_ML | ST77XX_MADCTL_RGB };
+    const uint8_t madctl[] = { ST77XX_MADCTL_ML | self->rgb };
     write_cmd(self, ST77XX_MADCTL, madctl, 1);
 
     write_cmd(self, ST77XX_INVON, NULL, 0);
@@ -438,7 +472,7 @@ STATIC mp_obj_t st77xx_ST77XX_init(mp_obj_t self_in) {
     write_cmd(self, ST77XX_DISPON, NULL, 0);
     mp_hal_delay_ms(100);  
     if (self->rotation > 0) {
-        rotate(self, self->rotation);
+        rotation(self, self->rotation);
     }
     return mp_const_none;
 }
@@ -515,14 +549,18 @@ STATIC const mp_rom_map_elem_t st77xx_ST77XX_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_sleep_mode), MP_ROM_PTR(&st77xx_ST77XX_sleep_mode_obj) },
     { MP_ROM_QSTR(MP_QSTR_inversion_mode), MP_ROM_PTR(&st77xx_ST77XX_inversion_mode_obj) },
     { MP_ROM_QSTR(MP_QSTR_set_window), MP_ROM_PTR(&st77xx_ST77XX_set_window_obj) },
-    { MP_ROM_QSTR(MP_QSTR_rotate), MP_ROM_PTR(&st77xx_ST77XX_rotate_obj) },
     { MP_ROM_QSTR(MP_QSTR_rotation), MP_ROM_PTR(&st77xx_ST77XX_rotation_obj) },
+    { MP_ROM_QSTR(MP_QSTR_width), MP_ROM_PTR(&st77xx_ST77XX_width_obj) },
+    { MP_ROM_QSTR(MP_QSTR_height), MP_ROM_PTR(&st77xx_ST77XX_height_obj) },
+    { MP_ROM_QSTR(MP_QSTR_xstart), MP_ROM_PTR(&st77xx_ST77XX_xstart_obj) },
+    { MP_ROM_QSTR(MP_QSTR_ystart), MP_ROM_PTR(&st77xx_ST77XX_ystart_obj) },
     { MP_ROM_QSTR(MP_QSTR_init), MP_ROM_PTR(&st77xx_ST77XX_init_obj) },
     { MP_ROM_QSTR(MP_QSTR_on), MP_ROM_PTR(&st77xx_ST77XX_on_obj) },
     { MP_ROM_QSTR(MP_QSTR_off), MP_ROM_PTR(&st77xx_ST77XX_off_obj) },
     { MP_ROM_QSTR(MP_QSTR_pixel), MP_ROM_PTR(&st77xx_ST77XX_pixel_obj) },
+    { MP_ROM_QSTR(MP_QSTR_pushcolor), MP_ROM_PTR(&st77xx_ST77XX_pushcolor_obj) },
     { MP_ROM_QSTR(MP_QSTR_line), MP_ROM_PTR(&st77xx_ST77XX_line_obj) },
-    { MP_ROM_QSTR(MP_QSTR_blit_buffer), MP_ROM_PTR(&st77xx_ST77XX_blit_buffer_obj) },
+    { MP_ROM_QSTR(MP_QSTR_blit), MP_ROM_PTR(&st77xx_ST77XX_blit_obj) },
     { MP_ROM_QSTR(MP_QSTR_fill_rect), MP_ROM_PTR(&st77xx_ST77XX_fill_rect_obj) },
     { MP_ROM_QSTR(MP_QSTR_fill), MP_ROM_PTR(&st77xx_ST77XX_fill_obj) },
     { MP_ROM_QSTR(MP_QSTR_hline), MP_ROM_PTR(&st77xx_ST77XX_hline_obj) },
@@ -548,7 +586,7 @@ mp_obj_t st77xx_ST77XX_make_new(const mp_obj_type_t *type,
                                 const mp_obj_t *all_args ) {
     enum {
         ARG_spi, ARG_width, ARG_height, ARG_rotation, ARG_reset, ARG_dc, ARG_cs,
-        ARG_backlight, ARG_xstart, ARG_ystart
+        ARG_backlight, ARG_rgb, ARG_xstart, ARG_ystart
     };
     static const mp_arg_t allowed_args[] = {
         { MP_QSTR_spi, MP_ARG_OBJ | MP_ARG_REQUIRED, {.u_obj = MP_OBJ_NULL} },
@@ -559,6 +597,7 @@ mp_obj_t st77xx_ST77XX_make_new(const mp_obj_type_t *type,
         { MP_QSTR_dc, MP_ARG_KW_ONLY | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
         { MP_QSTR_cs, MP_ARG_KW_ONLY | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
         { MP_QSTR_backlight, MP_ARG_KW_ONLY | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_rgb, MP_ARG_KW_ONLY | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
         { MP_QSTR_xstart, MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = -1} },
         { MP_QSTR_ystart, MP_ARG_KW_ONLY | MP_ARG_INT, {.u_int = -1} },
     };
@@ -604,6 +643,18 @@ mp_obj_t st77xx_ST77XX_make_new(const mp_obj_type_t *type,
     }
     if (args[ARG_backlight].u_obj != MP_OBJ_NULL) {
         self->backlight = mp_hal_get_pin_obj(args[ARG_backlight].u_obj);
+    }
+
+    mp_int_t rgbbgr;
+    if (args[ARG_rgb].u_obj != MP_OBJ_NULL) {
+        rgbbgr = args[ARG_rgb].u_int;
+    } else {
+        mp_raise_ValueError(MP_ERROR_TEXT("must specify RGB/BGR mode (0/1)"));
+    }
+    if (rgbbgr <= 0) {
+        self->rgb = ST77XX_MADCTL_RGB;
+    } else {
+        self->rgb = ST77XX_MADCTL_BGR;
     }
 
     return MP_OBJ_FROM_PTR(self);
