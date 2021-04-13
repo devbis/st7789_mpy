@@ -42,6 +42,15 @@ And then compile the module with specified USER_C_MODULES dir
     $ make USER_C_MODULES=../../../st7789_mpy/ all
 
 
+For rp2040 (requires micropython 1.15):
+
+    $ cd micropython/ports/rp2
+
+And then compile the module with specified USER_C_MODULES dir
+
+    $ make USER_C_MODULES=../../../st7789_mpy/st7789/micropython.cmake all
+
+
 If you have other user modules, copy the st7789_driver/st7789 to
 the user modules directory
 
