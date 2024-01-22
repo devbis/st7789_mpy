@@ -27,19 +27,19 @@ ensure that you can build the firmware without this display module.
 
 Clone this module alongside the MPY sources:
 
-    $ git clone https://github.com/devbis/st7789_mpy.git
+    git clone https://github.com/devbis/st7789_mpy.git
 
 Go to MicroPython ports directory and for ESP8266 run:
 
-    $ cd micropython/ports/esp8266
+    cd micropython/ports/esp8266
 
 for ESP32:
 
-    $ cd micropython/ports/esp32
+    cd micropython/ports/esp32
 
 And then compile the module with specified USER_C_MODULES dir
 
-    $ make USER_C_MODULES=../../../st7789_mpy/ all
+    make USER_C_MODULES=../../../st7789_mpy/ all
 
 
 If you have other user modules, copy the st7789_driver/st7789 to
@@ -50,7 +50,7 @@ Upload the resulting firmware to your MCU as usual with esptool.py
 [MicroPython docs](http://docs.micropython.org/en/latest/esp8266/tutorial/intro.html#deploying-the-firmware)
 for more info)
 
-    $ make deploy
+    make deploy
 
 Working examples
 ----------------
