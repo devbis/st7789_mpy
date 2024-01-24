@@ -18,6 +18,22 @@ firmware by yourself.
 ESP8266, ESP32, and STM32 ports are supported for now.
 
 
+Connecting to the Raspberry Pi Pico
+----------------------------------
+This repository is a fork of
+[https://github.com/devbis/st7789_mpy/](https://github.com/devbis/st7789_mpy/)
+focused on the [Raspberry Pi Pico](https://www.raspberrypi.org/products/raspberry-pi-pico/).
+
+Here is a firmware for the rp2040 with the st7789 module:
+[rp2-st7789-20210412.uf2](https://github.com/udifuchs/st7789_mpy/releases/download/rp2-20210412/rp2-st7789-20210412.uf2). It is based on the github version of MicroPython from 2021-04-12.
+
+Here is a sample wiring for connecting the [Adafruit 1.3 LCD display](https://learn.adafruit.com/adafruit-1-3-and-1-54-240-x-240-wide-angle-tft-lcd-displays) to the Raspberry PI Pico:
+<p align="center">
+  <img src="adafruit-1.3-display_bb.png" alt="adafruit 1.3 inch display"/>
+</p>
+(the source [fritzing]() file is [here](adafruit-1.3-display.fzz).) 
+The "Lite" pin is not connected to make it fit on a mini breadboard.
+
 Building instruction
 ---------------------
 
@@ -40,6 +56,15 @@ for ESP32:
 And then compile the module with specified USER_C_MODULES dir
 
     make USER_C_MODULES=../../../st7789_mpy/ all
+
+
+For rp2040 (requires micropython 1.15):
+
+    $ cd micropython/ports/rp2
+
+And then compile the module with specified USER_C_MODULES dir
+
+    $ make USER_C_MODULES=../../../st7789_mpy/st7789/micropython.cmake all
 
 
 If you have other user modules, copy the st7789_driver/st7789 to
@@ -102,6 +127,19 @@ Also, the driver was tested on STM32 board:
     display = st7789.ST7789(spi, 135, 240, reset=machine.Pin('B3', machine.Pin.OUT), dc=machine.Pin('B6', machine.Pin.OUT))
     display.init()
 
+For the rp2040 with the wiring shown above use:
+
+    import machine
+    import st7789
+    
+    spi = machine.SPI(1, baudrate=500_000_000, polarity=1)
+    display = st7789.ST7789(
+        spi, 240, 240,
+        reset=machine.Pin(15, machine.Pin.OUT),
+        dc=machine.Pin(14, machine.Pin.OUT),
+        cs=machine.Pin(13, machine.Pin.OUT),
+    )
+    display.init()
 
 Methods
 -------------

@@ -663,4 +663,4 @@ const mp_obj_module_t mp_module_st7789 = {
     .globals = (mp_obj_dict_t*)&mp_module_st7789_globals,
 };
 
-MP_REGISTER_MODULE(MP_QSTR_st7789, mp_module_st7789, MODULE_ST7789_ENABLED);
+MP_REGISTER_MODULE(MP_QSTR_st7789, mp_module_st7789, 1);
